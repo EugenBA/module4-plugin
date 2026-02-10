@@ -1,0 +1,13 @@
+[workspace]
+resolver="3"
+members = [
+    "blur_plugin",
+    "mirror_plugin",
+    "image_processor"
+]
+
+# Общие настройки для всех членов workspace
+[workspace.package]
+version = "0.1.0"
+authors = ["Eugen Batts"]
+license = "MIT"
