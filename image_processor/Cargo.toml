@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 clap = "4.5"
 thiserror = "2.0"
+image = "0.25"
+libloading="0.9"
