@@ -1,11 +1,14 @@
-
+use std::ffi::{c_char, c_uint};
 use libloading::{Library, Symbol};
 
 pub struct Plugin {
     plugin: Library,
 }
 pub struct PluginInterface<'a> {
-    pub process_image: Symbol<'a, extern "C" fn(prices: *const u32, prices_len: usize)>,
+    pub process_image: Symbol<'a, extern "C" fn(width: c_uint,
+                                                height: c_uint,
+                                                rgba_data: *mut u8,
+                                                params: *const c_char)>,
 }
 
 impl Plugin {
