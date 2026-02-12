@@ -1,13 +1,11 @@
-mod error;
-mod logger;
-
 use std::ffi::{c_char, c_uint, CStr};
 use std::slice;
-use log::LevelFilter;
-use serde::{Deserialize};
+use log::{LevelFilter};
+use serde::Deserialize;
 use serde_json;
-use crate::error::Error;
-use crate::logger::setup_logger;
+use plugins_support::error::Error;
+use plugins_support::logger::{get_log_level, setup_logger};
+
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
@@ -18,26 +16,6 @@ struct ConfigTransform{
     log_level: Option<String>,
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn process_image(
-                                width: c_uint,
-                                height: c_uint,
-                                rgba_data: *mut u8,
-                                params: *const c_char
-                                ) {
-    let file = PKG_NAME.to_owned() + ".txt";
-    setup_logger(LevelFilter::Error, &file);
-    if rgba_data.is_null() || params.is_null() {
-        return;
-    }
-    let len = (width as usize) * (height as usize) * 4;
-    let data = unsafe { slice::from_raw_parts_mut(rgba_data, len) };
-    let config = unsafe { CStr::from_ptr(params) };
-    if let Ok(config) = config.to_str() {} else {
-        return;
-    }
-}
-
 impl TryFrom<&str> for ConfigTransform {
     type Error = Error;
     fn try_from(value: &str) -> Result<Self, Error> {
@@ -45,19 +23,55 @@ impl TryFrom<&str> for ConfigTransform {
     }
 }
 
-impl ConfigTransform {
-    fn get_log_level(&self) -> LevelFilter {
-        match &self.log_level {
-            Some(level) => match level.as_str() {
-                "error" => LevelFilter::Error,
-                "warn" => LevelFilter::Warn,
-                "info" => LevelFilter::Info,
-                "debug" => LevelFilter::Debug,
-                "trace" => LevelFilter::Trace,
-                _ => LevelFilter::Error,
-            },
-            None => LevelFilter::Error,
-        }
+#[unsafe(no_mangle)]
+pub extern "C" fn process_image(
+                                width: c_uint,
+                                height: c_uint,
+                                rgba_data: *mut u8,
+                                params: *const c_char
+                                ) {
+    let file = PKG_NAME.to_owned() + ".log";
+    setup_logger(LevelFilter::Error, &file);
+    log::info!("Start plugin {}", &file);
+    if params.is_null(){
+         log::error!("Pointer params is_null");
+        return;
     }
+    let config = unsafe { CStr::from_ptr(params) };
+    let params_config = match config.to_str() {
+        Ok(config) =>
+            {
+                let config = ConfigTransform::try_from(config);
+                if let Ok(config) = config{
+                    config
+                }
+                else {
+                    log::error!("Error converting config to string");
+                    return;
+                }
+            },
+        _ => {
+            log::error!("Invalid config file");
+            return;
+        }
+    };
+    if let Some(log_level) = params_config.log_level
+    {
+        let log_level_filter = get_log_level(&log_level);
+        setup_logger(log_level_filter, &file);
+    }
+    if rgba_data.is_null() {
+        log::error!("Null pointer rgba_data");
+        return;
+    }
+    let len = (width as usize) * (height as usize) * 4;
+    let data = unsafe { slice::from_raw_parts_mut(rgba_data, len) };
+    if params_config.vertical_flip.is_some(){
+
+    }
+    if params_config.horizontal_flip.is_some(){
+
+    }
+
 }
 

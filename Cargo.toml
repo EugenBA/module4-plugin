@@ -4,7 +4,7 @@ members = [
     "blur_plugin",
     "mirror_plugin",
     "image_processor"
-]
+, "plugins_support"]
 
 # Общие настройки для всех членов workspace
 [workspace.package]
