@@ -1,0 +1,14 @@
+[package]
+name = "plugins-support"
+edition = "2024"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+env_logger.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+log.workspace = true
+serde = "1.0.228"
