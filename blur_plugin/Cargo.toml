@@ -7,3 +7,6 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
+log.workspace = true
+serde.workspace = true
+plugins-support={path = "../plugins_support"}

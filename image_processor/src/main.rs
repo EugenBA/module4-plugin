@@ -22,8 +22,8 @@ fn main() -> Result<(), ImageProcessorError> {
     let log_level_filter = get_logger_filter(&cli.log_level);
     setup_logger(log_level_filter, &file);
     log::info!("Starting image processor");
-    if !Path::new(&cli.plugin).exists(){
-        log::error!("Could not find plugin {}", cli.plugin);
+    if !Path::new(&cli.plugin_path).is_dir(){
+        log::error!("Could not find plugin {}", cli.plugin_path);
         return Err(ImageProcessorError::PathNotExist(io::Error::new(ErrorKind::NotFound, "Path plugin not exists")));
     }
     let plugin_lib = cli.plugin;
@@ -32,6 +32,7 @@ fn main() -> Result<(), ImageProcessorError> {
     #[cfg(target_os = "linux")]
     let plugin_lib = plugin_lib.add(".so");
     let plugin_path = Path::new(&cli.plugin_path).join(&plugin_lib);
+    log::info!("Plugin: {}", plugin_path.display());
     if !plugin_path.exists(){
         log::error!("Could not find plugin path {}", plugin_path.display());
         return Err(ImageProcessorError::PathNotExist(io::Error::new(ErrorKind::NotFound, "Lib plugin not exists")));

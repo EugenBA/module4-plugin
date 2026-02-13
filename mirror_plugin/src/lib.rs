@@ -23,7 +23,7 @@ pub extern "C" fn process_image(
                                 params: *const c_char
                                 ) {
     let file = PKG_NAME.to_owned() + ".log";
-    setup_logger(LevelFilter::Error, &file);
+    setup_logger(LevelFilter::Debug, &file);
     log::info!("Start plugin {}", &file);
     if params.is_null(){
          log::error!("Pointer params is_null");
@@ -50,7 +50,7 @@ pub extern "C" fn process_image(
     if let Some(log_level) = params_config.config.log_level
     {
         let log_level_filter = get_log_level(&log_level);
-        setup_logger(log_level_filter, &file);
+        //setup_logger(log_level_filter, &file);
     }
     if rgba_data.is_null() {
         log::error!("Null pointer rgba_data");
@@ -64,7 +64,8 @@ pub extern "C" fn process_image(
         log::error!("height cannot be 0");
         return;
     }
-    if params_config.config.vertical_flip.is_some(){
+    if let Some(vertical) = params_config.config.vertical_flip && vertical{
+        log::info!("Flipped vertical");
         let row_size = match (width as usize).checked_mul(BYTE_PER_PIXEL) {
             Some(size) => size,
             None => {
@@ -84,7 +85,8 @@ pub extern "C" fn process_image(
         }
 
     }
-    if params_config.config.horizontal_flip.is_some(){
+    if let Some(horizontal) = params_config.config.horizontal_flip && horizontal{
+        log::info!("Flipped horizontal");
         let col_size = match (height as usize).checked_mul(BYTE_PER_PIXEL) {
             Some(size) => size,
             None => {
