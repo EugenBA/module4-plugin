@@ -11,5 +11,7 @@ pub(crate) enum ImageProcessorError
     #[error("Library loading error: {0}")]
     PluginError(#[from] libloading::Error),
     #[error("Error convert image from raw")]
-    ConvertFromRawError
+    ConvertFromRawError,
+    #[error("Params string NulError: {0}")]
+    ParamsNulError(#[from] std::ffi::NulError),
 }

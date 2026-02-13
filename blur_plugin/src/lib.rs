@@ -1,3 +1,4 @@
+use std::slice;
 use std::ffi::{c_char, c_uint, CStr};
 use std::{ptr};
 use log::{LevelFilter};
@@ -64,7 +65,31 @@ pub extern "C" fn process_image(
         log::error!("height cannot be 0");
         return;
     }
-
+    let len = (width as usize) * (height as usize) * 4;
+    let buf = unsafe { slice::from_raw_parts_mut(rgba_data, len) };
+    if let Some(radius) = params_config.config.radius && radius > 0{
+        if let Some(step) = params_config.config.step && step > 0 {
+            for _ in 0..step {
+                for i in 0..len {
+                    for channel in 0..4 {
+                        let result = blur_rgba(buf, i, width as usize, height as usize,
+                                               BYTE_PER_PIXEL, radius as i32, channel);
+                        if let Some((sum, index)) = result {
+                            buf[index] = sum;
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            log::error!("Step cannot be 0");
+            return;
+        }
+    }
+    else {
+        log::error!("Radius cannot be 0");
+        return
+    }
 
 }
 
@@ -79,120 +104,35 @@ pub extern "C" fn process_image(
 ///
 /// # Паника
 /// Паникует, если длина buf не равна width * height * 4.
-pub fn box_blur_rgba(width: u32, height: u32, buf: &mut [u8], radius: u32, passes: u32) {
-    assert_eq!(buf.len(), (width * height * 4) as usize);
-    if radius == 0 || passes == 0 {
-        return;
+pub fn blur_rgba(buf: &mut [u8], index_pixel: usize, width: usize,
+                             height: usize, byte_per_pixel: usize,
+                             radius: i32, channel: u32) -> Option<(u8, usize)> {
+    assert_eq!(buf.len(), (width * height * 4));
+    if radius == 0   {
+        return None;
     }
-    let w = width as usize;
-    let h = height as usize;
-    let r = radius as usize;
-
-    // Временный буфер того же размера – для промежуточных результатов
-    let mut tmp = vec![0u8; buf.len()];
-
-    // Меняем местами исходный и временный буфер на каждом полупроходе
-    let (mut src, mut dst) = (&*buf, &mut tmp[..]);
-
-    for _ in 0..passes {
-        // ----- Горизонтальный проход (src → dst) -----
-        for y in 0..h {
-            let row_start = y * w * 4;
-            horizontal_blur_row(&src[row_start..row_start + w * 4], &mut dst[row_start..row_start + w * 4], w, r);
-        }
-
-        // Меняем роли: dst становится источником для вертикального прохода
-        std::mem::swap(&mut src, &mut dst);
-
-        // ----- Вертикальный проход (src → dst) -----
-        // Удобнее обрабатывать столбцы, транспонируя логику: работаем с колонками по x.
-        for x in 0..w {
-            let col = x * 4;
-            vertical_blur_column(src, dst, w, h, col, r);
-        }
-
-        // Снова меняем роли для следующего прохода
-        std::mem::swap(&mut src, &mut dst);
+    let index = index_pixel*byte_per_pixel + channel as usize;
+    if index >= buf.len() {
+        return None;
     }
-
-    // Если после последнего прохода результат оказался во временном буфере – копируем обратно
-    if std::ptr::eq(src, &*buf) == false {
-        buf.copy_from_slice(src);
-    }
-}
-
-/// Горизонтальное размытие одной строки (in-place не допускается – src и dst разные).
-#[inline]
-fn horizontal_blur_row(src_row: &[u8], dst_row: &mut [u8], width: usize, radius: usize) {
-    debug_assert_eq!(src_row.len(), width * 4);
-    debug_assert_eq!(dst_row.len(), width * 4);
-
-    // Обрабатываем 4 канала независимо
-    for c in 0..4 {
-        let mut sum = 0u32;
-        let mut count = 0usize;
-
-        // Инициализация окна для первого пикселя (x=0)
-        for dx in 0..=radius {
-            if dx < width {
-                sum += src_row[dx * 4 + c] as u32;
-                count += 1;
-            }
+    let mut count = 0;
+    let mut sum = 0;
+    for i in -radius..=radius {
+        let index_column = (i as usize + index_pixel) * byte_per_pixel + channel as usize;
+        let row = index /(width * byte_per_pixel);
+        let left = row*width*byte_per_pixel;
+        let right = row*width*byte_per_pixel + width*byte_per_pixel;
+        if index_column >=left && index_column < right {
+            sum += buf[index_column];
+            count += 1;
         }
-
-        for x in 0..width {
-            // Записываем среднее для текущей позиции
-            dst_row[x * 4 + c] = (sum / count as u32) as u8;
-
-            // Убираем пиксель, который уходит слева (x - radius)
-            let left = x as isize - radius as isize;
-            if left >= 0 {
-                sum -= src_row[left as usize * 4 + c] as u32;
-                count -= 1;
-            }
-
-            // Добавляем пиксель, который появляется справа (x + radius + 1)
-            let right = x + radius + 1;
-            if right < width {
-                sum += src_row[right * 4 + c] as u32;
-                count += 1;
-            }
+        let index_row = index + i as usize*width*byte_per_pixel + channel as usize;
+        if index_row < buf.len() {
+            sum += buf[index_row];
+            count += 1;
         }
     }
-}
+    return Some((sum / count, index));
 
-/// Вертикальное размытие одного столбца.
-/// `src` – исходный буфер (высота h), `dst` – целевой буфер.
-#[inline]
-fn vertical_blur_column(src: &[u8], dst: &mut [u8], width: usize, height: usize, col_start: usize, radius: usize) {
-    // col_start – смещение в байтах для первого пикселя столбца (обычно 0,4,8,...)
-    for c in 0..4 {
-        let mut sum = 0u32;
-        let mut count = 0usize;
-
-        // Инициализация окна для первого пикселя (y=0)
-        for dy in 0..=radius {
-            if dy < height {
-                sum += src[(dy * width * 4) + col_start + c] as u32;
-                count += 1;
-            }
-        }
-
-        for y in 0..height {
-            dst[(y * width * 4) + col_start + c] = (sum / count as u32) as u8;
-
-            let top = y as isize - radius as isize;
-            if top >= 0 {
-                sum -= src[(top as usize * width * 4) + col_start + c] as u32;
-                count -= 1;
-            }
-
-            let bottom = y + radius + 1;
-            if bottom < height {
-                sum += src[(bottom * width * 4) + col_start + c] as u32;
-                count += 1;
-            }
-        }
-    }
 }
 

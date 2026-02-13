@@ -4,6 +4,7 @@ mod error;
 mod logger;
 
 use std::{fs, io};
+use std::ffi::CString;
 use std::io::ErrorKind;
 use std::ops::Add;
 use std::path::Path;
@@ -53,7 +54,9 @@ fn main() -> Result<(), ImageProcessorError> {
     {
         let plugin = Plugin::new(&plugin_path.to_str().unwrap())?;
         let plugin = plugin.interface()?;
-        (plugin.process_image)(image.width(), image.height(), rgba_img.as_mut_ptr(), params.as_ptr());
+        let params_cstring = CString::new(params)?;
+        (plugin.process_image)(image.width(), image.height(), rgba_img.as_mut_ptr(),
+                               params_cstring.as_ptr());
     }
     let image = RgbaImage::from_raw(image.width(), image.height(), rgba_img);
     if let Some(image) = image {
