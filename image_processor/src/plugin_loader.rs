@@ -1,17 +1,17 @@
 //! Модуль для реализации интрфейса плагина
 //!
 //! Предоставляет функциональность по взаимодействию с плагинами
-use std::ffi::{c_char, c_uint};
 use libloading::{Library, Symbol};
+use std::ffi::{c_char, c_uint};
 
 pub(crate) struct Plugin {
     plugin: Library,
 }
 pub(crate) struct PluginInterface<'a> {
-    pub process_image: Symbol<'a, extern "C" fn(width: c_uint,
-                                                height: c_uint,
-                                                rgba_data: *mut u8,
-                                                params: *const c_char)>,
+    pub process_image: Symbol<
+        'a,
+        extern "C" fn(width: c_uint, height: c_uint, rgba_data: *mut u8, params: *const c_char),
+    >,
 }
 
 impl Plugin {
@@ -27,5 +27,3 @@ impl Plugin {
         })
     }
 }
-
-

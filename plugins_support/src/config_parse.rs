@@ -2,25 +2,22 @@
 //!
 //! Предоставляет функциональность по парсигу парметров модуля JSON
 
-use serde;
 use crate::error::Error;
+use serde;
 
 /// ```rust
-/// A generic structure for reading and storing configuration data.
+/// Дженерик структура для конфигурационных данных JSON
 ///
-/// The `ConfigReader` struct is designed to hold configuration data of any type.
-/// It can be used to manage and encapsulate configurations for an application, minimizing the need
-/// for global variables and allowing type-safe access to configuration values.
 ///
-/// # Type Parameters
+/// # Тип
 ///
-/// * `T` - The type of the configuration data.
+/// * `T` - тип для конфигурационных данных
 ///
-/// # Fields
+/// # Поля
 ///
-/// * `config` - A public field of type `T` that holds the configuration data.
+/// * `config` - публичное поле тип
 ///
-/// # Examples
+/// # Пример
 ///
 /// ```rust
 /// struct AppConfig {
@@ -37,27 +34,21 @@ use crate::error::Error;
 ///
 /// println!("Host: {}, Port: {}", config_reader.config.host, config_reader.config.port);
 /// ```
-///
-/// In this example, `ConfigReader` is instantiated with a custom `AppConfig` type to store application-specific configuration.
-/// pub
-///
-
 
 /// Структура - возращает конфигурацию плагина
-pub struct ConfigReader<T>{
+pub struct ConfigReader<T> {
     /// Конфигурация
     pub config: T,
 }
 
 impl<T> TryFrom<&str> for ConfigReader<T>
-    where T: serde::de::DeserializeOwned
+where
+    T: serde::de::DeserializeOwned,
 {
     type Error = Error;
-    fn try_from(value: &str) -> Result<Self, Error>
-    {
-        Ok(Self
-        {
-            config: serde_json::from_str(value)?
+    fn try_from(value: &str) -> Result<Self, Error> {
+        Ok(Self {
+            config: serde_json::from_str(value)?,
         })
     }
 }

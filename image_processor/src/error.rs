@@ -5,8 +5,7 @@
 use std::io;
 use thiserror::Error;
 #[derive(Error, Debug)]
-pub(crate) enum ImageProcessorError
-{
+pub(crate) enum ImageProcessorError {
     #[error("Path not exists: {0}")]
     PathNotExist(#[from] io::Error),
     #[error("Convertation error: {0}")]

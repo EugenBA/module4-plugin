@@ -2,20 +2,13 @@
 //!
 //! Предоставляет функциональность по оработе с логами
 
-use std::fs::File;
 use env_logger::{Builder, Target};
 use log::LevelFilter;
+use std::fs::File;
 use std::io::Write;
-use std::path::Path;
 
 pub(crate) fn setup_logger(level: LevelFilter, file: &str) {
-    let log_file = {
-        if Path::new(file).exists() {
-            File::open(file).expect("Error open log file")
-        } else {
-            File::create(file).expect("Error create log file")
-        }
-    };
+    let log_file = File::create(file).expect("Error create log file");
     Builder::new()
         .format(|buf, record| {
             writeln!(
@@ -34,7 +27,7 @@ pub(crate) fn setup_logger(level: LevelFilter, file: &str) {
         .init();
 }
 
-pub(crate) fn get_logger_filter(log_level: &str) -> LevelFilter{
+pub(crate) fn get_logger_filter(log_level: &str) -> LevelFilter {
     match log_level.as_ref() {
         "debug" => LevelFilter::Debug,
         "error" => LevelFilter::Error,
