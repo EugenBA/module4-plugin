@@ -15,7 +15,6 @@ use plugin_loader::Plugin;
 use std::ffi::CString;
 use std::io::ErrorKind;
 use std::ops::Add;
-use std::path::Path;
 use std::{fs, io};
 use plugins_support::logger::{get_log_level, setup_logger};
 
@@ -30,19 +29,19 @@ fn main() -> Result<(), ImageProcessorError> {
         return Err(ImageProcessorError::LoggerSetupFailed);
     }
     log::info!("Starting image processor");
-    if !Path::new(&cli.plugin_path).is_dir() {
-        log::error!("Could not find plugin {}", cli.plugin_path);
+    if !cli.plugin_path.exists() {
+        log::error!("Could not find plugin {}", cli.plugin_path.to_string_lossy());
         return Err(ImageProcessorError::PathNotExist(io::Error::new(
             ErrorKind::NotFound,
             "Path plugin not exists",
         )));
     }
-    let plugin_lib = cli.plugin;
+    let plugin_lib = cli.plugin.to_str().unwrap().to_owned();
     #[cfg(target_os = "windows")]
     let plugin_lib = plugin_lib.add(".dll");
     #[cfg(target_os = "linux")]
     let plugin_lib = plugin_lib.add(".so");
-    let plugin_path = Path::new(&cli.plugin_path).join(&plugin_lib);
+    let plugin_path = cli.plugin_path.join(&plugin_lib);
     log::info!("Plugin: {}", plugin_path.display());
     if !plugin_path.exists() {
         log::error!("Could not find plugin path {}", plugin_path.display());
@@ -51,21 +50,21 @@ fn main() -> Result<(), ImageProcessorError> {
             "Lib plugin not exists",
         )));
     }
-    if !Path::new(&cli.input).exists() {
-        log::error!("Could not find image {}", cli.input);
+    if !cli.input.exists() {
+        log::error!("Could not find image {}", cli.input.to_string_lossy());
         return Err(ImageProcessorError::PathNotExist(io::Error::new(
             ErrorKind::NotFound,
             "Image not exists",
         )));
     }
-    if !Path::new(&cli.params).exists() {
-        log::error!("Could not find params file {}", cli.params);
+    if !cli.params.exists() {
+        log::error!("Could not find params file {}", cli.params.to_string_lossy());
         return Err(ImageProcessorError::PathNotExist(io::Error::new(
             ErrorKind::NotFound,
             "Params file not exists",
         )));
     }
-    log::info!("Image input: {}", cli.input);
+    log::info!("Image input: {}", cli.input.to_string_lossy());
     log::info!(
         "Image plugin lib: {}",
         plugin_path.to_str().unwrap_or("unknown")
@@ -87,8 +86,8 @@ fn main() -> Result<(), ImageProcessorError> {
     let image = RgbaImage::from_raw(image.width(), image.height(), rgba_img);
     if let Some(image) = image {
         image.save(cli.output.clone())?;
-        println!("Image saved to {}", cli.output);
-        log::info!("Image successfully saved to {}", cli.output);
+        println!("Image saved to {}", cli.output.to_string_lossy());
+        log::info!("Image successfully saved to {}", cli.output.to_string_lossy());
     } else {
         log::error!("Error convert image");
         return Err(ImageProcessorError::ConvertFromRawError);
