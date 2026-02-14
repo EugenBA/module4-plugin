@@ -4,7 +4,7 @@
 #![warn(missing_docs)]
 use std::ffi::{c_char, c_uint, CStr};
 use std::{ptr};
-use log::{LevelFilter};
+use log::{log, LevelFilter};
 use serde::Deserialize;
 use plugins_support::{error::Error, config_parse::ConfigReader};
 use plugins_support::logger::{get_log_level, setup_logger};
@@ -63,7 +63,7 @@ struct ConfigTransform{
 ///  * # Example Usage
 ///  * ```rust
 ///  * use std::os::raw::{c_char, c_uint};
-///  * 
+///  *
 ///  * let width: c_uint = 800;
 ///  * let height: c_uint = 600;
 ///  * let mut rgba_data: Vec<u8> = vec![255; (width * height * 4) as usize]; // Placeholder image data.
@@ -72,7 +72,7 @@ struct ConfigTransform{
 ///  *     "vertical_flip": true,
 ///  *     "horizontal_flip": false
 ///  * }"#;
-///  * 
+///  *
 ///  * unsafe {
 ///  *     process_image(
 ///  *         width,
@@ -175,6 +175,6 @@ pub extern "C" fn process_image(
         }
 
     }
-
+    log::info!("Image processed successfully");
 }
 

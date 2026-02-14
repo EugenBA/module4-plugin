@@ -16,8 +16,8 @@ const BYTE_PER_PIXEL: i32 = 4;
 
 #[derive(Deserialize, Debug)]
 struct ConfigTransform{
-    radius: Option<usize>,
-    step: Option<usize>,
+    radius: usize,
+    step: usize,
     log_level: Option<String>,
 }
 
@@ -138,13 +138,13 @@ pub extern "C" fn process_image(
     log::info!("Start converting image");
     let len = (width as usize) * (height as usize) * 4;
     let buf = unsafe { slice::from_raw_parts_mut(rgba_data, len) };
-    if let Some(radius) = params_config.config.radius && radius > 0{
-        if let Some(step) = params_config.config.step && step > 0 {
-            for _ in 0..step {
+    if params_config.config.radius  > 0 {
+        if params_config.config.step > 0 {
+            for _ in 0..params_config.config.step {
                 for i in 0..width*height{
                     for channel in 0..4 {
                         let result = blur_rgba(buf, i as i32, width as i32, height as i32,
-                                               BYTE_PER_PIXEL, radius as i32, channel);
+                                               BYTE_PER_PIXEL, params_config.config.radius as i32, channel);
                         if let Some((sum, index)) = result {
                             buf[index] = sum;
                         }
