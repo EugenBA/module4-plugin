@@ -1,0 +1,13 @@
+[package]
+name = "mirror-plugin"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+plugins-support={path = "../plugins_support"}
