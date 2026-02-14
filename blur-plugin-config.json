@@ -1,5 +1,5 @@
 {
-  "radius": 5,
+  "radius": 15,
   "step": 2,
   "log_level": "debug"
 }

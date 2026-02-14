@@ -1,10 +1,21 @@
+//! Модуль для реализации логирования
+//!
+//! Предоставляет функциональность по оработе с логами
+
 use std::fs::File;
 use env_logger::{Builder, Target};
 use log::LevelFilter;
 use std::io::Write;
+use std::path::Path;
 
 pub(crate) fn setup_logger(level: LevelFilter, file: &str) {
-    let log_file = File::create(file).expect("Error create log file");
+    let log_file = {
+        if Path::new(file).exists() {
+            File::open(file).expect("Error open log file")
+        } else {
+            File::create(file).expect("Error create log file")
+        }
+    };
     Builder::new()
         .format(|buf, record| {
             writeln!(

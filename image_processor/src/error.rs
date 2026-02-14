@@ -1,6 +1,9 @@
+//! Модуль для реализации обработки ошибок
+//!
+//! Предоставляет функциональность по обработке ошибок
+
 use std::io;
 use thiserror::Error;
-
 #[derive(Error, Debug)]
 pub(crate) enum ImageProcessorError
 {
