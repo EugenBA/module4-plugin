@@ -193,3 +193,16 @@ pub fn blur_rgba(
     let sum = sum / count as f64;
     Some((sum as u8, index as usize))
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_blur_rgba() {
+        let mut buf = vec![1; 400];
+        let result = blur_rgba(&mut buf, 0, 10, 10, 4, 1, 0);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().0, 1);
+    }
+}
