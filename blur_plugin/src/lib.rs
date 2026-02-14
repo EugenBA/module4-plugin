@@ -65,14 +65,16 @@ struct ConfigTransform {
 ///   ```
 /// ```
 #[unsafe(no_mangle)]
-pub extern "C" fn process_image(
+pub unsafe extern "C" fn process_image(
     width: c_uint,
     height: c_uint,
     rgba_data: *mut u8,
     params: *const c_char,
 ) {
     let file = PKG_NAME.to_owned() + ".log";
-    setup_logger(LevelFilter::Debug, &file);
+    if let Err(_) = setup_logger(LevelFilter::Debug, &file){
+        return;
+    }
     log::info!("Start plugin {}", &file);
     if params.is_null() {
         log::error!("Pointer params is_null");

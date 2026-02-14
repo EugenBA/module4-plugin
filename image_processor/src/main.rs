@@ -5,12 +5,10 @@
 #![warn(missing_docs)]
 mod cli;
 mod error;
-mod logger;
 mod plugin_loader;
 
 use crate::cli::Cli;
 use crate::error::ImageProcessorError;
-use crate::logger::{get_logger_filter, setup_logger};
 use clap::Parser;
 use image::{ImageReader, RgbaImage};
 use plugin_loader::Plugin;
@@ -19,14 +17,18 @@ use std::io::ErrorKind;
 use std::ops::Add;
 use std::path::Path;
 use std::{fs, io};
+use plugins_support::logger::{get_log_level, setup_logger};
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
 fn main() -> Result<(), ImageProcessorError> {
     let cli = Cli::parse();
     let file = PKG_NAME.to_owned() + ".log";
-    let log_level_filter = get_logger_filter(&cli.log_level);
-    setup_logger(log_level_filter, &file);
+    let log_level_filter = get_log_level(&cli.log_level);
+    if let  Err(_) = setup_logger(log_level_filter, &file)
+    {
+        return Err(ImageProcessorError::LoggerSetupFailed);
+    }
     log::info!("Starting image processor");
     if !Path::new(&cli.plugin_path).is_dir() {
         log::error!("Could not find plugin {}", cli.plugin_path);
@@ -74,12 +76,14 @@ fn main() -> Result<(), ImageProcessorError> {
     let plugin = Plugin::new(&plugin_path.to_str().unwrap())?;
     let plugin = plugin.interface()?;
     let params_cstring = CString::new(params)?;
-    (plugin.process_image)(
+    unsafe {
+        (plugin.process_image)(
             image.width(),
             image.height(),
             rgba_img.as_mut_ptr(),
             params_cstring.as_ptr(),
-            );
+        );
+    }
     let image = RgbaImage::from_raw(image.width(), image.height(), rgba_img);
     if let Some(image) = image {
         image.save(cli.output.clone())?;

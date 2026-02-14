@@ -2,7 +2,7 @@
 //!
 //! Предоставляет функциональность парметров командной строки
 use clap::Parser;
-
+//output: PathBuf
 #[derive(Parser, Debug)]
 #[command(name = "image-processor")]
 #[command(about = "Image processor application", version = "1.0")]

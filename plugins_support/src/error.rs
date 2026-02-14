@@ -3,7 +3,7 @@
 //! Предоставляет функциональность по обработке ошибок
 use thiserror::Error;
 
-/// ```
+///
 /// Перечисление для прдесталения ошибок
 ///
 ///
@@ -22,7 +22,7 @@ use thiserror::Error;
 ///     - Error message: `"Params are not valid JSON {0}"`.
 ///
 ///
-/// ```
+///
 #[derive(Error, Debug)]
 pub enum Error {
     /// Ошибка обработки нулевого указателя RGBA буффера
@@ -34,4 +34,7 @@ pub enum Error {
     /// Ошибка парсинга JSON строки параметров
     #[error("Params are not valid JSON {0}")]
     ParamsAreNotValidJSON(#[from] serde_json::Error),
+    /// Ошибка создания файла лога
+    #[error("File create error: {0}")]
+    FileCreateError(#[from] std::io::Error),
 }
