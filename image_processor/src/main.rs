@@ -71,17 +71,15 @@ fn main() -> Result<(), ImageProcessorError> {
     let params = fs::read_to_string(cli.params)?;
     let image = ImageReader::open(&cli.input)?.decode()?;
     let mut rgba_img = image.to_rgba8().to_vec();
-    {
-        let plugin = Plugin::new(&plugin_path.to_str().unwrap())?;
-        let plugin = plugin.interface()?;
-        let params_cstring = CString::new(params)?;
-        (plugin.process_image)(
+    let plugin = Plugin::new(&plugin_path.to_str().unwrap())?;
+    let plugin = plugin.interface()?;
+    let params_cstring = CString::new(params)?;
+    (plugin.process_image)(
             image.width(),
             image.height(),
             rgba_img.as_mut_ptr(),
             params_cstring.as_ptr(),
-        );
-    }
+            );
     let image = RgbaImage::from_raw(image.width(), image.height(), rgba_img);
     if let Some(image) = image {
         image.save(cli.output.clone())?;
