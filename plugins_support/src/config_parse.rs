@@ -5,7 +5,7 @@
 use crate::error::Error;
 use serde;
 
-/// ```rust
+///
 /// Дженерик структура для конфигурационных данных JSON
 ///
 ///
@@ -19,7 +19,7 @@ use serde;
 ///
 /// # Пример
 ///
-/// ```rust
+/// ```ignore
 /// struct AppConfig {
 ///     host: String,
 ///     port: u16,
@@ -34,8 +34,7 @@ use serde;
 ///
 /// println!("Host: {}, Port: {}", config_reader.config.host, config_reader.config.port);
 /// ```
-
-/// Структура - возращает конфигурацию плагина
+///
 pub struct ConfigReader<T> {
     /// Конфигурация
     pub config: T,

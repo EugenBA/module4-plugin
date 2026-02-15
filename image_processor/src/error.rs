@@ -16,4 +16,6 @@ pub(crate) enum ImageProcessorError {
     ConvertFromRawError,
     #[error("Params string NulError: {0}")]
     ParamsNulError(#[from] std::ffi::NulError),
+    #[error("Logger setup failed")]
+    LoggerSetupFailed,
 }

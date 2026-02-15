@@ -6,8 +6,9 @@ use env_logger::{Builder, Target};
 use log::LevelFilter;
 use std::fs::File;
 use std::io::Write;
+use crate::error::Error;
 
-/// ```rust
+///
 /// Инициализация логера
 ///
 ///
@@ -32,14 +33,14 @@ use std::io::Write;
 ///
 /// # Usage
 ///
-/// ```rust
+///```ignore
 /// use log::LevelFilter;
 ///
 /// setup_logger(LevelFilter::Info, "app.log");
 /// log::info!("This is an informational message.");
-/// ```
-pub fn setup_logger(level: LevelFilter, file: &str) {
-    let log_file = File::create(file).expect("Error create log file");
+///```
+pub fn setup_logger(level: LevelFilter, file: &str) -> Result<(), Error> {
+    let log_file = File::create(file)?;
     Builder::new()
         .format(|buf, record| {
             writeln!(
@@ -55,27 +56,28 @@ pub fn setup_logger(level: LevelFilter, file: &str) {
         .target(Target::Pipe(Box::new(log_file)))
         .filter(None, level) // Уровень по умолчанию
         .write_style(env_logger::WriteStyle::Always) // Всегда использовать цвета
-        .init();
+        .try_init()?;
+    Ok(())
 }
 
-/// ```rust
+///
 /// Преобразование теста уровня логирования в LogFilter
 ///
 /// # Параметры
 ///
 /// * `config_str` - строка с уровнем логирования
-///   - `"error"`: Translated to `LevelFilter::Error`.
-///   - `"warn"`: Translated to `LevelFilter::Warn`.
-///   - `"info"`: Translated to `LevelFilter::Info`.
-///   - `"debug"`: Translated to `LevelFilter::Debug`.
-///   - `"trace"`: Translated to `LevelFilter::Trace`.
+/// *  - `"error"`: Translated to `LevelFilter::Error`.
+/// *  - `"warn"`: Translated to `LevelFilter::Warn`.
+/// *  - `"info"`: Translated to `LevelFilter::Info`.
+/// *  - `"debug"`: Translated to `LevelFilter::Debug`.
+/// *  - `"trace"`: Translated to `LevelFilter::Trace`.
 ///
 /// # Возращает
 /// LevelFilter
 ///
 /// # Пример
 ///
-/// ```rust
+///```ignore
 /// use log::LevelFilter;
 ///
 /// let level = get_log_level("info");
@@ -86,7 +88,7 @@ pub fn setup_logger(level: LevelFilter, file: &str) {
 /// ```
 ///
 pub fn get_log_level(config_str: &str) -> LevelFilter {
-    match config_str.as_ref() {
+    match config_str {
         "error" => LevelFilter::Error,
         "warn" => LevelFilter::Warn,
         "info" => LevelFilter::Info,

@@ -23,10 +23,6 @@ struct ConfigTransform {
 ///
 ///  Трансформация RGBA буффера горизонтальное и/или вертикальное отражение
 ///
-///  Safety
-///  Данная функция  помечена `unsafe`:
-///   - Работа напрямую с сырыми указателями (`rgba_data`, `params`) предстаялет external C code
-///   - Использования недопустимого указателя или парметров width, height undefined behavior.
 ///
 ///  # Параметры
 ///   - `width` (`c_uint`):  ширина изображения в пикселях
@@ -62,16 +58,31 @@ struct ConfigTransform {
 ///   const char *config = "{\"radius\": 5, \"step\": 2}";
 ///   process_image(width, height, image_data, config);
 ///   ```
-/// ```
+///
+/// # Safety
+/// Данная функция  помечена `unsafe`:
+///  - Работа напрямую с сырыми указателями (`rgba_data`, `params`) предстаялет external C code
+///  - Использования недопустимого указателя или парметров width, height undefined behavior.
+///```
 #[unsafe(no_mangle)]
-pub extern "C" fn process_image(
+pub unsafe extern "C" fn process_image(
     width: c_uint,
     height: c_uint,
     rgba_data: *mut u8,
     params: *const c_char,
 ) {
     let file = PKG_NAME.to_owned() + ".log";
-    setup_logger(LevelFilter::Debug, &file);
+    if let Err(e) = setup_logger(LevelFilter::Debug, &file){
+        match e {
+            Error::LoggerInitError(_) => {
+                log::warn!("Logger init error: {}", e);
+            }
+            _ => {
+                log::error!("Logger init error: {}", e);
+                return;
+            }
+        }
+    }
     log::info!("Start plugin {}", &file);
     if params.is_null() {
         log::error!("Pointer params is_null");
@@ -110,21 +121,47 @@ pub extern "C" fn process_image(
         log::error!("height cannot be 0");
         return;
     }
+    let width: usize = match  width.try_into(){
+        Ok(w) => w,
+        Err(_) => {
+            log::error!("Width conversion failed");
+            return;
+        }
+    };
+    let height: usize = match height.try_into(){
+       Ok(h) => h,
+        Err(_) => {
+            log::error!("Height conversion failed");
+            return;
+        }
+    };
     if let Some(vertical) = params_config.config.vertical_flip
         && vertical
     {
         log::info!("Flipped vertical");
-        let row_size = match (width as usize).checked_mul(BYTE_PER_PIXEL) {
+        let row_size = match width.checked_mul(BYTE_PER_PIXEL) {
             Some(size) => size,
             None => {
                 log::error!("Width out of bounds");
                 return;
             }
         };
-        let height = height as usize;
         for i in 0..(height / 2) {
-            let top_offset = i * row_size;
-            let bottom_offset = (height - 1 - i) * row_size;
+            let top_offset =  match i.checked_mul(row_size)
+            {
+                Some(top_offset) => top_offset,
+                None => {
+                    log::error!("Top offset out of bounds");
+                    return;
+                }
+            };
+            let bottom_offset = match (height - 1 - i).checked_mul(row_size){
+                Some(bottom_offset) => bottom_offset,
+                None => {
+                    log::error!("Bottom offset out of bounds");
+                    return;
+                }
+            };
             unsafe {
                 let top_ptr = rgba_data.add(top_offset);
                 let bottom_ptr = rgba_data.add(bottom_offset);
@@ -136,15 +173,32 @@ pub extern "C" fn process_image(
         && horizontal
     {
         log::info!("Flipped horizontal");
-        let width = width as usize;
-        let height = height as usize;
-        let row_size = width * BYTE_PER_PIXEL;
+        let row_size = match width.checked_mul(BYTE_PER_PIXEL)
+        {
+            Some(row_size) => row_size,
+            None => {
+                log::error!("Row size out of bounds");
+                return;
+            }
+        };
 
         for y in 0..height {
             let row_start = y * row_size;
             for x in 0..width / 2 {
-                let left_offset = row_start + x * BYTE_PER_PIXEL;
-                let right_offset = row_start + (width - 1 - x) * BYTE_PER_PIXEL;
+                let left_offset = row_start + match x.checked_mul(BYTE_PER_PIXEL){
+                    Some(left_offset) => left_offset,
+                    None => {
+                        log::error!("Left offset out of bounds");
+                        return;
+                    }
+                };
+                let right_offset = row_start + match (width - 1 - x).checked_mul(BYTE_PER_PIXEL){
+                    Some(right_offset) => right_offset,
+                    None => {
+                        log::error!("Right offset out of bounds");
+                        return;
+                    }
+                };
                 unsafe {
                     let left_ptr = rgba_data.add(left_offset);
                     let right_ptr = rgba_data.add(right_offset);
@@ -155,4 +209,27 @@ pub extern "C" fn process_image(
         }
     }
     log::info!("Image processed successfully");
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::CString;
+    use super::*;
+    #[test]
+    fn test_mirror_image_vertical() {
+        let mut buf = (0..16).collect::<Vec<_>>();
+        let json = r#"{"vertical_flip": true, "horizontal_flip": false}"#;
+        let params_cstring = CString::new(json).unwrap();
+        unsafe { process_image(2, 2, buf.as_mut_ptr(), params_cstring.as_ptr()) };
+        assert_eq!(buf, vec![8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7]);
+    }
+
+    #[test]
+    fn test_mirror_image_horizontal() {
+        let mut buf = (0..16).collect::<Vec<_>>();
+        let json = r#"{"vertical_flip": false, "horizontal_flip": true}"#;
+        let params_cstring = CString::new(json).unwrap();
+        unsafe { process_image(2, 2, buf.as_mut_ptr(), params_cstring.as_ptr()) };
+        assert_eq!(buf, vec![4, 5, 6, 7, 0, 1, 2, 3, 12, 13, 14, 15, 8, 9, 10, 11]);
+    }
 }

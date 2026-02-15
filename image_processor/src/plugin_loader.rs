@@ -10,7 +10,7 @@ pub(crate) struct Plugin {
 pub(crate) struct PluginInterface<'a> {
     pub process_image: Symbol<
         'a,
-        extern "C" fn(width: c_uint, height: c_uint, rgba_data: *mut u8, params: *const c_char),
+        unsafe extern "C" fn(width: c_uint, height: c_uint, rgba_data: *mut u8, params: *const c_char),
     >,
 }
 
