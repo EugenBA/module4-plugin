@@ -88,7 +88,7 @@ pub fn setup_logger(level: LevelFilter, file: &str) -> Result<(), Error> {
 /// ```
 ///
 pub fn get_log_level(config_str: &str) -> LevelFilter {
-    match config_str.as_ref() {
+    match config_str {
         "error" => LevelFilter::Error,
         "warn" => LevelFilter::Warn,
         "info" => LevelFilter::Info,

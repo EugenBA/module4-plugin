@@ -37,4 +37,13 @@ pub enum Error {
     /// Ошибка создания файла лога
     #[error("File create error: {0}")]
     FileCreateError(#[from] std::io::Error),
+    #[error("Error convert type {0}")]
+    /// Ошибка преобразования типа
+    ConvertTypeError(#[from] std::num::TryFromIntError),
+    #[error("Error value: {0}")]
+    /// Ошибка занчения
+    ErrorValue(String),
+    /// Переполнение типа
+    #[error("Overflow type")]
+    OverflowError
 }

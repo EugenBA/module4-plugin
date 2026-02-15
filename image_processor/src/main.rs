@@ -24,7 +24,7 @@ fn main() -> Result<(), ImageProcessorError> {
     let cli = Cli::parse();
     let file = PKG_NAME.to_owned() + ".log";
     let log_level_filter = get_log_level(&cli.log_level);
-    if let  Err(_) = setup_logger(log_level_filter, &file)
+    if setup_logger(log_level_filter, &file).is_err()
     {
         return Err(ImageProcessorError::LoggerSetupFailed);
     }
@@ -72,7 +72,7 @@ fn main() -> Result<(), ImageProcessorError> {
     let params = fs::read_to_string(cli.params)?;
     let image = ImageReader::open(&cli.input)?.decode()?;
     let mut rgba_img = image.to_rgba8().to_vec();
-    let plugin = Plugin::new(&plugin_path.to_str().unwrap())?;
+    let plugin = Plugin::new(plugin_path.to_str().unwrap())?;
     let plugin = plugin.interface()?;
     let params_cstring = CString::new(params)?;
     unsafe {

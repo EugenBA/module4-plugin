@@ -34,8 +34,7 @@ use serde;
 ///
 /// println!("Host: {}, Port: {}", config_reader.config.host, config_reader.config.port);
 /// ```
-
-/// Структура - возращает конфигурацию плагина
+///
 pub struct ConfigReader<T> {
     /// Конфигурация
     pub config: T,

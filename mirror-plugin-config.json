@@ -1,5 +1,5 @@
 {
-  "vertical_flip": false,
-  "horizontal_flip": true,
+  "vertical_flip": true,
+  "horizontal_flip": false,
   "log_level": "debug"
 }

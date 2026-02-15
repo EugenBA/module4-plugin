@@ -11,7 +11,7 @@ use std::ffi::{CStr, c_char, c_uint};
 use std::slice;
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
-const BYTE_PER_PIXEL: i32 = 4;
+const BYTE_PER_PIXEL: usize = 4;
 
 #[derive(Deserialize, Debug)]
 struct ConfigTransform {
@@ -24,10 +24,6 @@ struct ConfigTransform {
 ///
 ///  Трансформация RGBA буффера эффектома размытия
 ///
-///  Safety
-///  Данная функция  помечена `unsafe`:
-///   - Работа напрямую с сырыми указателями (`rgba_data`, `params`) предстаялет external C code
-///   - Использования недопустимого указателя или парметров width, height undefined behavior.
 ///
 ///  # Параметры
 ///   - `width` (`c_uint`):  ширина изображения в пикселях
@@ -63,6 +59,10 @@ struct ConfigTransform {
 ///   const char *config = "{\"radius\": 5, \"step\": 2}";
 ///   process_image(width, height, image_data, config);
 ///   ```
+/// # Safety
+///  Данная функция  помечена `unsafe`:
+///   - Работа напрямую с сырыми указателями (`rgba_data`, `params`) предстаялет external C code
+///   - Использования недопустимого указателя или парметров width, height undefined behavior.
 /// ```
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn process_image(
@@ -72,7 +72,7 @@ pub unsafe extern "C" fn process_image(
     params: *const c_char,
 ) {
     let file = PKG_NAME.to_owned() + ".log";
-    if let Err(_) = setup_logger(LevelFilter::Debug, &file){
+    if setup_logger(LevelFilter::Debug, &file).is_err() {
         return;
     }
     log::info!("Start plugin {}", &file);
@@ -114,23 +114,50 @@ pub unsafe extern "C" fn process_image(
         return;
     }
     log::info!("Start converting image");
-    let len = (width as usize) * (height as usize) * 4;
-    let buf = unsafe { slice::from_raw_parts_mut(rgba_data, len) };
+    let height: usize = match height.try_into() {
+        Ok(h) => h,
+        Err(_) => {
+            log::error!("Height conversion failed");
+            return;
+        }
+    };
+    let width: usize = match width.try_into() {
+        Ok(w) => w,
+        Err(_) => {
+            log::error!("Width conversion failed");
+            return;
+        }
+    };
+    let len_image = match width.checked_mul(height) {
+        Some(wh) => wh,
+        None => {
+            log::error!("Length calculation failed");
+            return;
+        }
+    };
+    let len_in_pixel = match len_image.checked_mul(BYTE_PER_PIXEL) {
+        Some(len) => len,
+        None => {
+            log::error!("Length calculation failed");
+            return;
+        }
+    };
+    let buf = unsafe { slice::from_raw_parts_mut(rgba_data, len_in_pixel) };
     if params_config.config.radius > 0 {
         if params_config.config.step > 0 {
             for _ in 0..params_config.config.step {
-                for i in 0..width * height {
+                for i in 0..len_image {
                     for channel in 0..4 {
                         let result = blur_rgba(
                             buf,
-                            i as i32,
-                            width as i32,
-                            height as i32,
+                            i,
+                            width,
+                            height,
                             BYTE_PER_PIXEL,
-                            params_config.config.radius as i32,
+                            params_config.config.radius,
                             channel,
                         );
-                        if let Some((sum, index)) = result {
+                        if let Ok((sum, index)) = result {
                             buf[index] = sum;
                         }
                     }
@@ -155,56 +182,131 @@ pub unsafe extern "C" fn process_image(
 /// * `width`       – ширина в пикселях.
 /// * `height`      – высота в пикселях.
 /// * `byte_per_pixel` – количество байт на пиксель
-/// * `radius`      – радиус размытия (целое, >= 0). 0 – без изменений.
+/// * `radius`      – радиус размытия (целое, > 0)
 /// * `channel`     – канал (0 - R, 1 - G, 2 - B, 3 - A)
 ///
-/// # Паника
-/// Паникует, если длина buf не равна width * height * 4.
 pub fn blur_rgba(
     buf: &mut [u8],
-    index_pixel: i32,
-    width: i32,
-    height: i32,
-    byte_per_pixel: i32,
-    radius: i32,
-    channel: i32,
-) -> Option<(u8, usize)> {
-    assert_eq!(buf.len(), (width as usize * height as usize * 4));
+    index_pixel: usize,
+    width: usize,
+    height: usize,
+    byte_per_pixel: usize,
+    radius: usize,
+    channel: usize,
+) -> Result<(u8, usize), Error> {
+    assert_eq!(buf.len(), width * height * byte_per_pixel);
     if radius == 0 {
         log::error!("Radius cannot be 0");
-        return None;
+        return Err(Error::ErrorValue("Radius cannot be 0".to_string()));
     }
-    let index = index_pixel * byte_per_pixel + channel;
     let mut count = 0;
     let mut sum = 0.0;
+    let index_pixel: i32 = index_pixel.try_into()?;
+    let radius: i32 = radius.try_into()?;
+    let channel: i32 = channel.try_into()?;
+    let byte_per_pixel: i32 = byte_per_pixel.try_into()?;
+    let width: i32 = width.try_into()?;
+    let buff_len: i32 = buf.len().try_into()?;
+    let index = channel
+        + match index_pixel.checked_mul(byte_per_pixel) {
+            Some(index) => index,
+            None => {
+                log::error!("Overflow type index");
+                return Err(Error::OverflowError);
+            }
+        };
     for i in -radius..=radius {
-        let index_column = (i + index_pixel) * byte_per_pixel + channel;
-        let row = index / (width * byte_per_pixel);
-        let left = row * width * byte_per_pixel + channel;
-        let right = row * width * byte_per_pixel + width * byte_per_pixel + channel;
-        if index_column >= left && index_column < right {
+        let index_column = channel
+            + match (i + index_pixel).checked_mul(byte_per_pixel) {
+                Some(index) => index,
+                None => {
+                    log::error!("Overflow type index_column");
+                    return Err(Error::OverflowError);
+                }
+            };
+        let len_width_in_byte = match width.checked_mul(byte_per_pixel) {
+            Some(len) => len,
+            None => {
+                log::error!("Overflow type len_width_in_byte");
+                return Err(Error::OverflowError);
+            }
+        };
+        let row = match index.checked_div(len_width_in_byte) {
+            Some(row) => row,
+            None => {
+                return {
+                    log::error!("Overflow type row");
+                    Err(Error::OverflowError)
+                };
+            }
+        };
+        let left_base_index = match row.checked_mul(len_width_in_byte) {
+            Some(left_base_index) => left_base_index,
+            None => {
+                log::error!("Overflow type left_base_index");
+                return Err(Error::OverflowError);
+            }
+        };
+        let left = left_base_index + channel;
+        let right = left_base_index + len_width_in_byte + channel;
+        if index_column >= left
+            && index_column < right
+            && left >= 0
+            && right < buff_len
+            && left < right
+        {
             sum += buf[index_column as usize] as f64;
             count += 1;
         }
-        let index_row = index + i * width * byte_per_pixel + channel;
-        if index_row >= 0 && index_row < buf.len() as i32 {
+        let index_row = channel
+            + index
+            + match i.checked_mul(len_width_in_byte) {
+                Some(index) => index,
+                None => {
+                    log::error!("Overflow type index_row");
+                    return Err(Error::OverflowError);
+                }
+            };
+        if index_row >= 0 && index_row < buff_len {
             sum += buf[index_row as usize] as f64;
             count += 1;
         }
     }
     let sum = sum / count as f64;
-    Some((sum as u8, index as usize))
+    Ok((sum as u8, index as usize))
 }
-
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::CString;
     use super::*;
     #[test]
     fn test_blur_rgba() {
         let mut buf = vec![1; 400];
         let result = blur_rgba(&mut buf, 0, 10, 10, 4, 1, 0);
-        assert!(result.is_some());
+        assert!(result.is_ok());
         assert_eq!(result.unwrap().0, 1);
     }
+    #[test]
+    fn test_blur_image() {
+        let mut buf = (0..16).collect::<Vec<_>>();
+        let json = r#"{"step": 1, "radius": 2}"#;
+        let params_cstring = CString::new(json).unwrap();
+        unsafe { process_image(2, 2, buf.as_mut_ptr(), params_cstring.as_ptr()) };
+        assert_eq!(buf, vec![3, 4, 6, 7, 5, 7, 5, 7, 5, 8, 8, 9, 8, 9, 4, 7]);
+    }
+    /// Тест радиус i32:MAX для теста переполнения
+    /// Так как для теста перполнения размера изображения
+    /// несобходим буффер размера i32:MAX*1*4 ~530Mp
+    /// тест сделаем на перполнение радиуса установив его в i32:MAX
+    #[test]
+    fn test_blur_rgba_overflow(){
+        let mut buf = (0..16).collect::<Vec<_>>();
+        let radius  = i32::MAX as usize;
+        let result = blur_rgba(&mut buf, 0, 2,
+                               2, 4, radius, 0);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), Error::OverflowError))
+    }
+
 }
