@@ -56,7 +56,7 @@ pub fn setup_logger(level: LevelFilter, file: &str) -> Result<(), Error> {
         .target(Target::Pipe(Box::new(log_file)))
         .filter(None, level) // Уровень по умолчанию
         .write_style(env_logger::WriteStyle::Always) // Всегда использовать цвета
-        .init();
+        .try_init()?;
     Ok(())
 }
 

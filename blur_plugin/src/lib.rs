@@ -72,8 +72,16 @@ pub unsafe extern "C" fn process_image(
     params: *const c_char,
 ) {
     let file = PKG_NAME.to_owned() + ".log";
-    if setup_logger(LevelFilter::Debug, &file).is_err() {
-        return;
+    if let Err(e) = setup_logger(LevelFilter::Debug, &file){
+        match e {
+            Error::LoggerInitError(_) => {
+                log::warn!("Logger init error: {}", e);
+            }
+            _ => {
+                log::error!("Logger init error: {}", e);
+                return;
+            }
+        }
     }
     log::info!("Start plugin {}", &file);
     if params.is_null() {

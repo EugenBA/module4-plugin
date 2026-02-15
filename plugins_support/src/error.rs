@@ -1,6 +1,7 @@
 //! Модуль для реализации обработки ошибок
 //!
 //! Предоставляет функциональность по обработке ошибок
+
 use thiserror::Error;
 
 ///
@@ -45,5 +46,9 @@ pub enum Error {
     ErrorValue(String),
     /// Переполнение типа
     #[error("Overflow type")]
-    OverflowError
+    OverflowError,
+    ///Ошибка инициализации логгера
+    #[error("Logger init error: {0}")]
+    LoggerInitError(#[from] log::SetLoggerError),
+
 }
